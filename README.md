@@ -10,19 +10,6 @@ An interactive web application that visualizes Indonesia's postal code regions u
 - Color-coded regions for easy distinction
 - Popup information showing postal code prefix and number of villages
 
-## Requirements
-
-- Python 3.8+
-- Dependencies listed in `requirements.txt`
-
-## Installation
-
-1. Clone this repository
-2. Install dependencies:
-  ```bash
-  pip install -r requirements.txt
-  ```
-
 ## Usage
 
 1. Start the server:
@@ -51,13 +38,9 @@ The API has one main endpoint:
 
 ## Data Source
 
-The application uses `kodepos.csv` which contains postal code data for Indonesia with the following columns:
-- code: Postal code
-- village: Village name
-- district: District name
-- regency: Regency name
-- province: Province name
-- latitude: Geographical latitude
-- longitude: Geographical longitude
-- elevation: Elevation in meters
-- timezone: Time zone 
+- https://github.com/edwin/database-kodepos-seluruh-indonesia
+
+## Disclaimer
+
+This data is provided "as is" without any guarantee whatsoever. 
+Feel free to fork, tinker, add, remove, change, or do whatever you want to it. 
