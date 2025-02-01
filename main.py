@@ -2,7 +2,6 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 import pandas as pd
 import folium
-import numpy as np
 from scipy.spatial import ConvexHull
 from typing import Dict
 
@@ -11,136 +10,149 @@ app = FastAPI(title="Indonesia Post Code Map")
 # Cache to store pre-calculated map data for each zoom level
 map_cache: Dict[int, str] = {}
 
+
 def get_color(feature):
     """Generate a color based on the postal code value"""
-    return f'#{hash(str(feature)) & 0xFFFFFF:06x}'
+    return f"#{hash(str(feature)) & 0xFFFFFF:06x}"
+
 
 def calculate_map_features(zoom_level: int) -> folium.Map:
     """Calculate map features for a specific zoom level"""
     # Create base map centered on Indonesia
     m = folium.Map(location=[-2.5489, 118.0149], zoom_start=10)
-    
+
     # Ensure zoom level is within bounds
     zoom_level = max(1, min(5, zoom_level))
-    
-    df = pd.read_csv('kodepos.csv')
+
+    df = pd.read_csv("kodepos.csv")
     # Convert postal codes to strings to preserve leading zeros
-    df['code'] = df['code'].astype(str).str.zfill(5)
-    
+    df["code"] = df["code"].astype(str).str.zfill(5)
+
     # Filter points to only include those within reasonable bounds for Indonesia
     # Approximate bounds: Latitude: -11 to 6, Longitude: 95 to 141
     df = df[
-        (df['latitude'] >= -11) & (df['latitude'] <= 6) &
-        (df['longitude'] >= 95) & (df['longitude'] <= 141)
+        (df["latitude"] >= -11)
+        & (df["latitude"] <= 6)
+        & (df["longitude"] >= 95)
+        & (df["longitude"] <= 141)
     ]
-        
+
     # Create postal code prefix based on zoom level
-    df['prefix'] = df['code'].str[:zoom_level]
+    df["prefix"] = df["code"].str[:zoom_level]
 
     # Remove specific rows that have anomalous lat/long
     filtered_df = df[~df.index.isin([79909, 97516, 61560])]
-    
+
     # Filter out incorrect data point
-    filtered_df = filtered_df.drop_duplicates(subset=['latitude', 'longitude'], keep=False)
+    filtered_df = filtered_df.drop_duplicates(
+        subset=["latitude", "longitude"], keep=False
+    )
 
     # Group by prefix and calculate center points
-    grouped = filtered_df.groupby('prefix').agg({
-        'latitude': 'mean',
-        'longitude': 'mean',
-        'village': 'count'
-    }).reset_index()
-    
+    grouped = (
+        filtered_df.groupby("prefix")
+        .agg({"latitude": "mean", "longitude": "mean", "village": "count"})
+        .reset_index()
+    )
+
     # Create polygons for each postal code area
     for _, row in grouped.iterrows():
-        points = filtered_df[filtered_df['prefix'] == row['prefix']][['latitude', 'longitude']].values
+        points = filtered_df[filtered_df["prefix"] == row["prefix"]][
+            ["latitude", "longitude"]
+        ].values
         if len(points) < 3:
             folium.CircleMarker(
-                location=[row['latitude'], row['longitude']],
+                location=[row["latitude"], row["longitude"]],
                 popup=f'Awalan Kode Pos: {row["prefix"]}<br>Desa/Kelurahan: {row["village"]}',
-                color=get_color(row['prefix']),
+                color=get_color(row["prefix"]),
                 fill=True,
                 fill_opacity=0.7,
-                radius=8
+                radius=8,
             ).add_to(m)
             continue
-            
+
         try:
             filtered_points = points
             if len(filtered_points) < 3:
                 folium.CircleMarker(
-                    location=[row['latitude'], row['longitude']],
+                    location=[row["latitude"], row["longitude"]],
                     popup=f'Awalan Kode Pos: {row["prefix"]}<br>Desa/Kelurahan: {row["village"]}',
-                    color=get_color(row['prefix']),
+                    color=get_color(row["prefix"]),
                     fill=True,
                     fill_opacity=0.7,
-                    radius=8
+                    radius=8,
                 ).add_to(m)
                 continue
-                
+
             hull = ConvexHull(filtered_points)
             hull_points = filtered_points[hull.vertices]
-            
+
             folium.Polygon(
                 locations=hull_points,
                 popup=f'Awalan Kode Pos: {row["prefix"]}<br>Desa/Kelurahan: {row["village"]}',
-                color=get_color(row['prefix']),
+                color=get_color(row["prefix"]),
                 fill=True,
                 fill_opacity=0.4,
-                weight=2
+                weight=2,
             ).add_to(m)
         except Exception as e:
             print(f"Error creating polygon for prefix {row['prefix']}: {e}")
             folium.CircleMarker(
-                location=[row['latitude'], row['longitude']],
+                location=[row["latitude"], row["longitude"]],
                 popup=f'Awalan Kode Pos: {row["prefix"]}<br>Desa/Kelurahan: {row["village"]}',
-                color=get_color(row['prefix']),
+                color=get_color(row["prefix"]),
                 fill=True,
                 fill_opacity=0.7,
-                radius=8
+                radius=8,
             ).add_to(m)
             continue
-    
+
     return m
+
 
 def initialize_cache():
     """Initialize the cache with pre-calculated map data for all zoom levels"""
     import os
     import json
-    
+
     global map_cache
     cache_file = "map_cache.json"
-    
+
     if os.path.exists(cache_file):
         print("Loading map cache from file...")
-        with open(cache_file, 'r', encoding='utf-8') as f:
+        with open(cache_file, "r", encoding="utf-8") as f:
             map_cache = json.load(f)
         print("Map cache loaded successfully!")
         return
-        
+
     print("Initializing map cache...")
     for zoom_level in range(1, 6):
         print(f"Calculating map data for zoom level {zoom_level}...")
         m = calculate_map_features(zoom_level)
         map_cache[str(zoom_level)] = m.get_root().render()
-    
+
     print("Saving map cache to file...")
-    with open(cache_file, 'w', encoding='utf-8') as f:
+    with open(cache_file, "w", encoding="utf-8") as f:
         json.dump(map_cache, f)
     print("Map cache initialization complete!")
 
+
 initialize_cache()
+
 
 @app.get("/", response_class=HTMLResponse)
 async def get_map(zoom_level: int = 1):
     """Serve the cached map with specified zoom level"""
     try:
         zoom_level = max(1, min(5, zoom_level))
-        map_html = map_cache[str(zoom_level)]  # Convert to string since JSON keys are strings
-        
+        map_html = map_cache[
+            str(zoom_level)
+        ]  # Convert to string since JSON keys are strings
+
         # Update popup text to Indonesian
-        map_html = map_html.replace('Postal Code Prefix:', 'Awalan Kode Pos:')
-        map_html = map_html.replace('Villages:', 'Desa/Kelurahan:')
-        
+        map_html = map_html.replace("Postal Code Prefix:", "Awalan Kode Pos:")
+        map_html = map_html.replace("Villages:", "Desa/Kelurahan:")
+
         # Create a complete HTML document that includes both map and controls
         full_html = f"""
         <!DOCTYPE html>
@@ -224,15 +236,18 @@ async def get_map(zoom_level: int = 1):
         </body>
         </html>
         """
-        
+
         return full_html
     except Exception as e:
         import traceback
+
         print(f"Error: {str(e)}")
         print("Stack trace:")
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000) 
+
+    uvicorn.run(app, host="0.0.0.0", port=8000)

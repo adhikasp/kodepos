@@ -1,4 +1,10 @@
 repos:
+  - repo: https://github.com/psf/black
+    rev: 25.1.0
+    hooks:
+      - id: black
+        language_version: python3
+        stages: [commit]
   - repo: local
     hooks:
       - id: fly-deploy
@@ -6,4 +12,5 @@ repos:
         entry: fly deploy
         language: system
         stages: [push]
-        pass_filenames: false 
+        pass_filenames: false
+    
