@@ -1,0 +1,6 @@
+We have kodepos.csv file. The data is in CSV format with following columns and sample data:
+
+code,village,district,regency,province,latitude,longitude,elevation,timezone
+23773,Keude Bakongan,Bakongan,Aceh Selatan,Aceh,2.9305396,97.4880401,6,WIB
+23773,Ujong Mangki,Bakongan,Aceh Selatan,Aceh,2.9410565,97.4503839,21,WIB
+23773,Ujong Padang,Bakongan,Aceh Selatan,Aceh,2.9471073,97.4913707,7,WIB
