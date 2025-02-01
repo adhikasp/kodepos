@@ -5,13 +5,13 @@ repos:
       - id: black
         name: Black formatter
         language_version: python3
-        stages: [commit]
+        stages: [pre-commit]
   - repo: local
     hooks:
       - id: fly-deploy
         name: Deploy to Fly.io
         entry: fly deploy
         language: system
-        stages: [push]
+        stages: [pre-push]
         pass_filenames: false
     
