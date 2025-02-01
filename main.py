@@ -185,7 +185,6 @@ async def get_map(zoom_level: int = 1):
                         <input type="range" id="zoomLevel" min="1" max="5" value="{zoom_level}" 
                                style="writing-mode: bt-lr; -webkit-appearance: slider-vertical; width: 40px; height: 300px; transform: rotate(180deg);" 
                                autocomplete="off" data-form-type="other" data-lpignore="true">
-                        <div id="zoomValue" style="margin-top: 15px; text-align: center; font-size: 1.5em; font-weight: bold; color: #2c3e50;">Tingkat {zoom_level}</div>
                     </div>
                     <div id="zoomDescription" style="flex: 2; font-size: 1.2em; color: #666; display: flex; flex-direction: column; justify-content: space-between; height: 300px; padding: 15px 0;">
                         <div class="level-item" data-level="1" style="padding: 10px; border-radius: 8px; background: #f8f9fa; cursor: pointer; transition: background 0.2s;"><strong>Tingkat 1:</strong> Wilayah kepulauan</div>
@@ -198,40 +197,26 @@ async def get_map(zoom_level: int = 1):
 
                 <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;">
 
-                <div>
-                    <h3 style="margin: 0 0 15px 0; color: #2c3e50;">Tentang Kode Pos Indonesia</h3>
+                <div style="max-width: 400px;">
+                    <h3 style="margin: 0 0 15px 0; color: #2c3e50;">Tentang Kode Pos</h3>
                     <p style="margin: 0 0 15px 0; color: #666; line-height: 1.6;">
-                        Kode pos di Indonesia terdiri dari lima angka:
+                        Kode Pos (bahasa Inggris: postal code atau ZIP code) adalah serangkaian karakter (angka atau huruf) yang ditambahkan pada alamat surat dan paket untuk mempermudah proses pemilahan surat. Di negara lain, kode pos lebih dikenal dengan sebutan ZIP Code yang berasal dari USA dan adalah singkatan istilah Zone Improvement Plan. ZIP Code atau kode pos ini biasanya terdiri dari beberapa angka yang menunjukkan kode dari sebuah area. Umumnya, kode pos terdiri dari lima angka (misalnya di Swedia). Namun, ada juga yang memiliki angka tambahan untuk lokasi yang lebih detil.
                     </p>
-                    <ul style="color: #666; padding-left: 20px; margin-bottom: 15px;">
-                        <li>Angka pertama merupakan kode wilayah tempat kantor pos berlokasi</li>
-                        <li>Angka kedua dan ketiga merupakan kode kabupaten atau kota</li>
-                        <li>Angka keempat merupakan kode kecamatan</li>
-                        <li>Angka kelima merupakan kode desa atau kelurahan</li>
-                    </ul>
-                    <p style="margin: 0 0 15px 0; color: #666; line-height: 1.6;">
-                        <strong>Pengecualian untuk Jakarta:</strong>
-                    </p>
-                    <ul style="color: #666; padding-left: 20px; margin-bottom: 15px;">
-                        <li>Angka ketiga merupakan kode kecamatan</li>
-                        <li>Angka keempat merupakan kode kelurahan</li>
-                        <li>Angka kelima adalah "0"</li>
-                    </ul>
                     <p style="margin: 0; color: #666; font-size: 0.9em;">
-                        Sumber: <a href="https://id.wikipedia.org/wiki/Daftar_kode_pos_di_Indonesia" target="_blank" style="color: #3498db;">Wikipedia - Daftar kode pos di Indonesia</a>
+                        Sumber: <a href="https://id.wikipedia.org/wiki/Kode_pos" target="_blank" style="color: #3498db;">Wikipedia - Kode pos</a>
+                        <br>
+                        Kode tersedia di: <a href="https://github.com/adhikasp/kodepos" target="_blank" style="color: #3498db;">GitHub - adhikasp/kodepos</a>
                     </p>
                 </div>
             </div>
 
             <script>
                 const slider = document.getElementById('zoomLevel');
-                const output = document.getElementById('zoomValue');
                 const levelItems = document.querySelectorAll('.level-item');
                 
                 // Function to update the UI and trigger navigation
                 function updateLevel(level) {{
                     slider.value = level;
-                    output.innerHTML = `Tingkat ${{level}}`;
                     window.location.href = `/?zoom_level=${{level}}`;
                 }}
                 
@@ -249,11 +234,6 @@ async def get_map(zoom_level: int = 1):
                         updateLevel(level);
                     }});
                 }});
-                
-                // Update display when slider changes
-                slider.oninput = function() {{
-                    output.innerHTML = `Level ${{this.value}}`;
-                }}
                 
                 let debounceTimer;
                 slider.addEventListener('input', function() {{
