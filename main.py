@@ -11,8 +11,18 @@ app = FastAPI(title="Indonesia Post Code Map")
 # Cache to store pre-calculated map data for each zoom level
 map_cache: Dict[int, str] = {}
 
-# Load the data once when starting the server
-try:
+def get_color(feature):
+    """Generate a color based on the postal code value"""
+    return f'#{hash(str(feature)) & 0xFFFFFF:06x}'
+
+def calculate_map_features(zoom_level: int) -> folium.Map:
+    """Calculate map features for a specific zoom level"""
+    # Create base map centered on Indonesia
+    m = folium.Map(location=[-2.5489, 118.0149], zoom_start=10)
+    
+    # Ensure zoom level is within bounds
+    zoom_level = max(1, min(5, zoom_level))
+    
     df = pd.read_csv('kodepos.csv')
     # Convert postal codes to strings to preserve leading zeros
     df['code'] = df['code'].astype(str).str.zfill(5)
@@ -23,53 +33,18 @@ try:
         (df['latitude'] >= -11) & (df['latitude'] <= 6) &
         (df['longitude'] >= 95) & (df['longitude'] <= 141)
     ]
-except Exception as e:
-    print(f"Error loading data: {e}")
-    raise
-
-def remove_outliers(points):
-    """Remove outliers using IQR method."""
-    if len(points) < 4:  # Need at least 4 points for IQR
-        return points
-        
-    iqr_multiplier = 1.5
-        
-    q1_lat = np.percentile(points[:, 0], 25)
-    q3_lat = np.percentile(points[:, 0], 75)
-    iqr_lat = q3_lat - q1_lat
-    
-    q1_lon = np.percentile(points[:, 1], 25)
-    q3_lon = np.percentile(points[:, 1], 75)
-    iqr_lon = q3_lon - q1_lon
-    
-    lat_lower = q1_lat - iqr_multiplier * iqr_lat
-    lat_upper = q3_lat + iqr_multiplier * iqr_lat
-    lon_lower = q1_lon - iqr_multiplier * iqr_lon
-    lon_upper = q3_lon + iqr_multiplier * iqr_lon
-    
-    mask = (
-        (points[:, 0] >= lat_lower) & (points[:, 0] <= lat_upper) &
-        (points[:, 1] >= lon_lower) & (points[:, 1] <= lon_upper)
-    )
-    return points[mask]
-
-def get_color(feature):
-    """Generate a color based on the postal code value"""
-    return f'#{hash(str(feature)) & 0xFFFFFF:06x}'
-
-def calculate_map_features(zoom_level: int) -> folium.Map:
-    """Calculate map features for a specific zoom level"""
-    # Create base map centered on Indonesia
-    m = folium.Map(location=[-2.5489, 118.0149], zoom_start=5)
-    
-    # Ensure zoom level is within bounds
-    zoom_level = max(1, min(5, zoom_level))
         
     # Create postal code prefix based on zoom level
     df['prefix'] = df['code'].str[:zoom_level]
+
+    # Remove specific rows that have anomalous lat/long
+    filtered_df = df[~df.index.isin([79909, 97516, 61560])]
     
+    # Filter out incorrect data point
+    filtered_df = filtered_df.drop_duplicates(subset=['latitude', 'longitude'], keep=False)
+
     # Group by prefix and calculate center points
-    grouped = df.groupby('prefix').agg({
+    grouped = filtered_df.groupby('prefix').agg({
         'latitude': 'mean',
         'longitude': 'mean',
         'village': 'count'
@@ -77,7 +52,7 @@ def calculate_map_features(zoom_level: int) -> folium.Map:
     
     # Create polygons for each postal code area
     for _, row in grouped.iterrows():
-        points = df[df['prefix'] == row['prefix']][['latitude', 'longitude']].values
+        points = filtered_df[filtered_df['prefix'] == row['prefix']][['latitude', 'longitude']].values
         if len(points) < 3:
             folium.CircleMarker(
                 location=[row['latitude'], row['longitude']],
@@ -90,7 +65,7 @@ def calculate_map_features(zoom_level: int) -> folium.Map:
             continue
             
         try:
-            filtered_points = remove_outliers(points)
+            filtered_points = points
             if len(filtered_points) < 3:
                 folium.CircleMarker(
                     location=[row['latitude'], row['longitude']],
@@ -132,12 +107,12 @@ def initialize_cache():
     import os
     import json
     
+    global map_cache
     cache_file = "map_cache.json"
     
     if os.path.exists(cache_file):
         print("Loading map cache from file...")
         with open(cache_file, 'r', encoding='utf-8') as f:
-            global map_cache
             map_cache = json.load(f)
         print("Map cache loaded successfully!")
         return
@@ -146,12 +121,12 @@ def initialize_cache():
     for zoom_level in range(1, 6):
         print(f"Calculating map data for zoom level {zoom_level}...")
         m = calculate_map_features(zoom_level)
-        map_cache[zoom_level] = m.get_root().render()
+        map_cache[str(zoom_level)] = m.get_root().render()
     
     print("Saving map cache to file...")
     with open(cache_file, 'w', encoding='utf-8') as f:
         json.dump(map_cache, f)
-    print("Map cache initialization complete!")\
+    print("Map cache initialization complete!")
 
 initialize_cache()
 
@@ -178,8 +153,11 @@ async def get_map(zoom_level: int = 1):
         <body style="margin: 0; padding: 0;">
             {map_html}
             <div style="position: fixed; top: 80px; left: 20px; background: white; padding: 30px; 
-                 border-radius: 12px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); z-index: 1000; min-width: 600px;">
-                <h2 style="margin: 0 0 25px 0; text-align: center; color: #2c3e50; font-size: 24px;">Detail Tingkat Kode Pos</h2>
+                 border-radius: 12px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); z-index: 1000; width: 600px;">
+                <h2 style="margin: 0 0 25px 0; text-align: center; color: #2c3e50; font-size: 24px;">Hierarki Kode Pos Indonesia</h2>
+                <p style="color: #666; margin: 0 0 20px 0;">
+                    Visualisasi ini memungkinkan Anda menjelajahi struktur kode pos di Indonesia dengan cara yang interaktif. Gunakan slider  untuk melihat cakupan kode pos dengan awalan nomor yang sama, mulai dari wilayah kepulauan hingga tingkat desa/kelurahan.
+                </p>
                 <div style="display: flex; align-items: start; justify-content: space-between; margin-bottom: 30px;">
                     <div style="flex: 1; padding-right: 30px;">
                         <input type="range" id="zoomLevel" min="1" max="5" value="{zoom_level}" 
@@ -197,7 +175,7 @@ async def get_map(zoom_level: int = 1):
 
                 <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;">
 
-                <div style="max-width: 400px;">
+                <div>
                     <h3 style="margin: 0 0 15px 0; color: #2c3e50;">Tentang Kode Pos</h3>
                     <p style="margin: 0 0 15px 0; color: #666; line-height: 1.6;">
                         Kode Pos (bahasa Inggris: postal code atau ZIP code) adalah serangkaian karakter (angka atau huruf) yang ditambahkan pada alamat surat dan paket untuk mempermudah proses pemilahan surat. Di negara lain, kode pos lebih dikenal dengan sebutan ZIP Code yang berasal dari USA dan adalah singkatan istilah Zone Improvement Plan. ZIP Code atau kode pos ini biasanya terdiri dari beberapa angka yang menunjukkan kode dari sebuah area. Umumnya, kode pos terdiri dari lima angka (misalnya di Swedia). Namun, ada juga yang memiliki angka tambahan untuk lokasi yang lebih detil.
@@ -249,7 +227,10 @@ async def get_map(zoom_level: int = 1):
         
         return full_html
     except Exception as e:
-        print(f"Error: {str(e)}")  # Add debug print
+        import traceback
+        print(f"Error: {str(e)}")
+        print("Stack trace:")
+        print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
