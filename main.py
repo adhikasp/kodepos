@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 import pandas as pd
 import folium
 import numpy as np
@@ -138,6 +138,15 @@ def create_map(zoom_level: int = 1):
     
     return m
 
+@app.get("/map-data")
+async def get_map_data(zoom_level: int = 1):
+    """Return just the map HTML for AJAX updates"""
+    try:
+        m = create_map(zoom_level)
+        return JSONResponse(content={"map_html": m.get_root().render()})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/", response_class=HTMLResponse)
 async def get_map(zoom_level: int = 1):
     """Serve the map with specified zoom level"""
@@ -151,8 +160,8 @@ async def get_map(zoom_level: int = 1):
             <h3 style="margin: 0 0 10px 0;">Postal Code Zoom Level</h3>
             <input type="range" id="zoomLevel" min="1" max="5" value="{}" style="width: 200px;">
             <span id="zoomValue">{}</span>
-            <button onclick="updateMap()" style="display: block; margin-top: 10px; padding: 5px 10px;">Update Map</button>
         </div>
+        <div id="map-container"></div>
         <script>
             const slider = document.getElementById('zoomLevel');
             const output = document.getElementById('zoomValue');
@@ -162,10 +171,13 @@ async def get_map(zoom_level: int = 1):
                 output.innerHTML = this.value;
             }}
             
-            function updateMap() {{
-                const zoomLevel = document.getElementById('zoomLevel').value;
-                window.location.href = `/?zoom_level=${{zoomLevel}}`;
-            }}
+            let debounceTimer;
+            slider.addEventListener('input', function() {{
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(() => {{
+                    window.location.href = `/?zoom_level=${{this.value}}`;
+                }}, 300);
+            }});
         </script>
         </body>
         """.format(zoom_level, zoom_level)

@@ -27,11 +27,7 @@ An interactive web application that visualizes Indonesia's postal code regions u
 
 1. Start the server:
   ```bash
-  python main.py
-  ```
-  Or using uvicorn directly:
-  ```bash
-  uvicorn main:app --reload
+  uvicorn main:app --reload --host 0.0.0.0 --port 8000
   ```
 
 2. Open your browser and visit `http://localhost:8000`
