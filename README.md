@@ -38,7 +38,7 @@ The API has one main endpoint:
 
 ## Data Source
 
-- https://github.com/edwin/database-kodepos-seluruh-indonesia
+- https://github.com/sooluh/kodepos
 
 ## Disclaimer
 
